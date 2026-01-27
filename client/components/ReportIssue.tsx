@@ -21,6 +21,7 @@ export default function ReportIssue({ onSuccess }: { onSuccess?: () => void }) {
       setFile(selectedFile);
       setPreview(URL.createObjectURL(selectedFile));
       
+      // Auto-get location
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
           (position) => {
@@ -29,7 +30,9 @@ export default function ReportIssue({ onSuccess }: { onSuccess?: () => void }) {
               lng: position.coords.longitude
             });
           },
-          () => {
+          (error) => {
+            console.error("Error getting location:", error);
+            // Fallback location for demo (City center)
              setLocation({ lat: 40.7128, lng: -74.0060 });
           }
         );
@@ -71,6 +74,7 @@ export default function ReportIssue({ onSuccess }: { onSuccess?: () => void }) {
       
       if (onSuccess) onSuccess();
 
+      // Reset form after delay
       setTimeout(() => {
         setFile(null);
         setPreview(null);
@@ -79,6 +83,7 @@ export default function ReportIssue({ onSuccess }: { onSuccess?: () => void }) {
       }, 5000);
 
     } catch (error: any) {
+      console.error(error);
       setStatus('error');
       setMessage(error.response?.data?.error || 'Failed to submit report');
     } finally {

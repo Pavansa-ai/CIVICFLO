@@ -1,29 +1,37 @@
-# Dependencies
+# Node.js
 node_modules/
-npm-debug.log*
-pnpm-debug.log*
-yarn-error.log*
+**/node_modules/
 
-# Next.js build output
+# Next.js build artifacts
 .next/
-client/.next/
-admin-client/.next/
-server/client/.next/
+**/.next/
+out/
+dist/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
 # Environment files
 .env
-.env.*
-client/.env.local
-admin-client/.env.local
-server/.env
+**/.env
+.env.local
+**/.env.local
+.env.*.local
 
-# Python virtual env
+# Server uploads (runtime-generated)
+server/uploads/
+
+# AI service
 venv/
-.venv/
+ai_service/__pycache__/
+ai_service/temp_upload.jpg
 
-# IDE/OS
+# TypeScript
+**/*.tsbuildinfo
+
+# OS files
 .DS_Store
 Thumbs.db
-
-# Logs
-*.log

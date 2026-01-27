@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Dashboard from "../components/Dashboard";
-import KarmaCard from "../components/KarmaCard";
-import { ThemeToggle } from "../components/ThemeToggle";
+import Dashboard from "@/components/Dashboard";
+import KarmaCard from "@/components/KarmaCard";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export default function Home() {
   const [workerScore, setWorkerScore] = useState(0);
@@ -36,6 +36,7 @@ export default function Home() {
       </header>
 
       <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8">
+        {/* Left Column: Worker Stats */}
         <div className="space-y-6 md:col-span-1">
           <section>
              <KarmaCard score={workerScore} title="Worker Reputation" />
@@ -43,13 +44,14 @@ export default function Home() {
                 <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">Instructions</h3>
                 <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-2 list-disc pl-4">
                   <li>Monitor the Kanban board for new tickets.</li>
-                  <li>Move tickets to In Progress when you start working.</li>
-                  <li>Move to Fixed to complete and earn points.</li>
+                  <li>Move tickets to <strong>In Progress</strong> when you start working.</li>
+                  <li>Move to <strong>Fixed</strong> to complete and earn points.</li>
                 </ul>
              </div>
           </section>
         </div>
 
+        {/* Right Column: Dashboard (Kanban + Map) */}
         <section className="md:col-span-3">
           <Dashboard onReward={handleReward} />
         </section>
@@ -57,3 +59,4 @@ export default function Home() {
     </main>
   );
 }
+

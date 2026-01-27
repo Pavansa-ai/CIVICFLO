@@ -4,8 +4,8 @@ import { useState, useEffect } from "react";
 import ReportIssue from "../components/ReportIssue";
 import Dashboard from "../components/Dashboard";
 import KarmaCard from "../components/KarmaCard";
-import { ThemeToggle } from "../components/ThemeToggle";
 import MyReports from "../components/MyReports";
+import { ThemeToggle } from "../components/ThemeToggle";
 
 export default function Home() {
   const [karma, setKarma] = useState(0);
@@ -13,7 +13,7 @@ export default function Home() {
   useEffect(() => {
     const saved = localStorage.getItem("civic_karma");
     if (saved) setKarma(parseInt(saved, 10));
-    else setKarma(35);
+    else setKarma(35); // Initial demo score
   }, []);
 
   const handleReportSuccess = () => {
@@ -38,6 +38,7 @@ export default function Home() {
       </header>
 
       <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
+        {/* Left Column: Report & Karma */}
         <div className="space-y-6">
           <section>
              <h2 className="text-lg font-bold mb-2 text-gray-700 dark:text-gray-200">Citizen Actions</h2>
@@ -53,6 +54,7 @@ export default function Home() {
           </section>
         </div>
 
+        {/* Right Column: Dashboard (Map Only) */}
         <section className="md:col-span-2">
           <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-white flex items-center gap-2">
             Live Civic Intelligence Map

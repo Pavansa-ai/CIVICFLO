@@ -1,7 +1,25 @@
-html, body {
-  height: 100%;
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
 }
 
 body {
-  background-color: #f9fafb;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+/* Leaflet Dark Mode Overrides */
+.dark .leaflet-popup-content-wrapper,
+.dark .leaflet-popup-tip {
+  background-color: #1f2937; /* gray-800 */
+  color: #f3f4f6; /* gray-100 */
 }

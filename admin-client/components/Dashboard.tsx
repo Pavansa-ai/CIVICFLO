@@ -1,11 +1,15 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import axios from 'axios';
 import dynamic from 'next/dynamic';
+import { Loader2, LayoutGrid, Map as MapIcon, List } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
+import KanbanBoard from './KanbanBoard';
+import { TicketSkeleton } from './Skeleton';
 
-const MapContainer = dynamic(() => import('react-leaflet').then(mod => mod.MapContainer), { ssr: false });
+// Dynamic import for Leaflet (SSR fix)
+const MapContainer = dynamic(() => import('react-leaflet').then(mod => mod.MapContainer), { ssr: false, loading: () => <div className="h-full w-full bg-gray-100 dark:bg-gray-800 animate-pulse rounded-lg" /> });
 const TileLayer = dynamic(() => import('react-leaflet').then(mod => mod.TileLayer), { ssr: false });
 const Marker = dynamic(() => import('react-leaflet').then(mod => mod.Marker), { ssr: false });
 const Popup = dynamic(() => import('react-leaflet').then(mod => mod.Popup), { ssr: false });
@@ -15,18 +19,11 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1
 export default function Dashboard({ onReward }: { onReward?: (points: number) => void }) {
   const [tickets, setTickets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [view, setView] = useState<'map' | 'kanban'>('map');
   const [mapIcon, setMapIcon] = useState<any>(null);
-  const STATUSES = ['New', 'In Progress', 'Fixed'];
-  const localChangesRef = useRef<Map<string, string>>(new Map());
-  const normalizeStatus = (s: string) => {
-    const x = (s || '').toLowerCase();
-    if (x === 'resolved') return 'Fixed';
-    if (x === 'fixed') return 'Fixed';
-    if (x === 'inprogress' || x === 'in progress') return 'In Progress';
-    return 'New';
-  };
 
   useEffect(() => {
+    // Client-side only Leaflet setup
     if (typeof window !== 'undefined') {
       import('leaflet').then((L) => {
         const icon = L.default.icon({
@@ -44,15 +41,9 @@ export default function Dashboard({ onReward }: { onReward?: (points: number) =>
   const fetchTickets = async () => {
     try {
       const res = await axios.get(`${API_URL}/tickets`);
-      const lc = localChangesRef.current;
-      const incoming = Array.isArray(res.data) ? res.data : [];
-      const merged = incoming.map((t: any) => {
-        const override = lc.get(t.ticketId);
-        const status = override ? override : normalizeStatus(t.status);
-        return { ...t, status };
-      });
-      setTickets(merged);
-    } catch {
+      setTickets(res.data);
+    } catch (error) {
+      console.error("Failed to fetch tickets", error);
     } finally {
       setLoading(false);
     }
@@ -60,124 +51,67 @@ export default function Dashboard({ onReward }: { onReward?: (points: number) =>
 
   useEffect(() => {
     fetchTickets();
-    const interval = setInterval(fetchTickets, 10000);
+    const interval = setInterval(fetchTickets, 10000); // Poll every 10s
     return () => clearInterval(interval);
   }, []);
 
-  const grouped = useMemo(() => {
-    const groups: Record<string, any[]> = { New: [], 'In Progress': [], Fixed: [] };
-    for (const t of tickets) {
-      const key = STATUSES.includes(t.status) ? t.status : normalizeStatus(t.status);
-      groups[key].push(t);
-    }
-    return groups;
-  }, [tickets]);
-
-  const updateStatus = async (ticketId: string, nextStatus: string) => {
-    const prev = localChangesRef.current.get(ticketId) ?? tickets.find((t) => t.ticketId === ticketId)?.status;
-    localChangesRef.current.set(ticketId, nextStatus);
-    setTickets((current) => current.map((t) => (t.ticketId === ticketId ? { ...t, status: nextStatus } : t)));
-    try {
-      const lower = nextStatus === 'Fixed' ? 'resolved' : nextStatus === 'In Progress' ? 'inprogress' : 'new';
-      await axios.patch(
-        `${API_URL}/tickets/${ticketId}/status`,
-        { status: nextStatus },
-        { headers: { 'Content-Type': 'application/json', Accept: 'application/json' } }
-      );
-      // If server expects lowercase variants, try a second pass silently
-      await axios.patch(
-        `${API_URL}/tickets/${ticketId}/status`,
-        { status: lower },
-        { headers: { 'Content-Type': 'application/json', Accept: 'application/json' } }
-      ).catch(() => {});
-    } catch {
-      if (prev) localChangesRef.current.set(ticketId, prev);
-      setTickets((current) => current.map((t) => (t.ticketId === ticketId ? { ...t, status: prev || 'New' } : t)));
-    }
-  };
-
-  const handleDrop = async (e: React.DragEvent, status: string) => {
-    e.preventDefault();
-    const ticketId = e.dataTransfer.getData('text/plain');
-    const ticket = tickets.find((t) => t.ticketId === ticketId);
-    if (!ticket) return;
-    const prev = ticket.status;
-    await updateStatus(ticketId, status);
-    if (status === 'Fixed' && prev !== 'Fixed' && onReward) {
-      onReward(50);
-    }
-  };
-
-  const allowDrop = (e: React.DragEvent) => e.preventDefault();
-
   const center: [number, number] = tickets.length > 0 
     ? [tickets[0].location.coordinates[1], tickets[0].location.coordinates[0]] 
-    : [40.7128, -74.0060];
+    : [40.7128, -74.0060]; // Default NY
+
+  const seedData = async () => {
+    if (confirm('Add demo data? This will add fake tickets to the system.')) {
+      try {
+        setLoading(true);
+        await axios.post(`${API_URL}/seed`);
+        await fetchTickets();
+      } catch (error) {
+        console.error("Seed failed", error);
+      }
+    }
+  };
 
   return (
-    <div className="space-y-6">
-      <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 shadow-sm">
-        <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-gray-800 dark:text-gray-200">Issue Kanban</h2>
-          <div className="text-xs text-gray-500 dark:text-gray-400">Drag cards to update status</div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4">
-          {STATUSES.map((status) => (
-            <div
-              key={status}
-              className="rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-3 min-h-[220px]"
-              onDragOver={allowDrop}
-              onDrop={(e) => handleDrop(e, status)}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">{status}</h3>
-                <span className="text-xs px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
-                  {grouped[status].length}
-                </span>
-              </div>
-              <div className="space-y-2">
-                {grouped[status].map((t) => (
-                  <div
-                    key={t.ticketId}
-                    draggable
-                    onDragStart={(e) => {
-                      e.dataTransfer.setData('text/plain', t.ticketId);
-                      e.dataTransfer.effectAllowed = 'move';
-                    }}
-                    className="p-2 rounded bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-sm cursor-grab"
-                  >
-                    <div className="flex justify-between items-center">
-                      <div className="text-sm font-semibold text-gray-800 dark:text-gray-200 capitalize">
-                        {t.type.replace('_', ' ')}
-                      </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">{t.ticketId.slice(0, 6)}…</div>
-                    </div>
-                    <div className="text-xs text-gray-600 dark:text-gray-400">
-                      Priority: {t.priorityScore.toFixed(2)}
-                    </div>
-                    <div className="mt-2">
-                      <img
-                        draggable
-                        onDragStart={(e) => {
-                          e.dataTransfer.setData('text/plain', t.ticketId);
-                          e.dataTransfer.effectAllowed = 'move';
-                        }}
-                        src={t.imageUrl.startsWith('http') ? t.imageUrl : `http://localhost:4000${t.imageUrl}`}
-                        alt="issue"
-                        className="w-full h-20 object-cover rounded"
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
+    <div className="space-y-4">
+      {/* View Switcher */}
+      <div className="flex justify-end gap-2">
+        <button 
+          onClick={seedData}
+          className="px-3 py-1.5 rounded-md text-sm font-medium text-purple-600 bg-purple-50 hover:bg-purple-100 dark:bg-purple-900/30 dark:text-purple-300 dark:hover:bg-purple-900/50 transition border border-purple-200 dark:border-purple-800"
+        >
+          🌱 Seed Demo Data
+        </button>
+        <button 
+          onClick={() => setView('map')}
+          className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition ${view === 'map' ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+        >
+          <MapIcon className="w-4 h-4" />
+          Map View
+        </button>
+        <button 
+          onClick={() => setView('kanban')}
+          className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition ${view === 'kanban' ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+        >
+          <LayoutGrid className="w-4 h-4" />
+          Kanban Board
+        </button>
       </div>
+
       {loading ? (
-         <div className="h-[400px] lg:h-[600px] bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse" />
+         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+             <div className="lg:col-span-2 h-[400px] bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse" />
+             <div className="lg:col-span-1 space-y-3">
+                 <TicketSkeleton />
+                 <TicketSkeleton />
+                 <TicketSkeleton />
+             </div>
+         </div>
+      ) : view === 'kanban' ? (
+        <KanbanBoard tickets={tickets} onUpdate={fetchTickets} onReward={onReward} />
       ) : (
-        <div className="h-[400px] lg:h-[600px] bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 shadow-sm z-0">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Map View */}
+          <div className="lg:col-span-2 h-[400px] lg:h-[600px] bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 shadow-sm z-0">
             <MapContainer center={center} zoom={13} style={{ height: '100%', width: '100%' }}>
               <TileLayer
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -194,7 +128,7 @@ export default function Dashboard({ onReward }: { onReward?: (points: number) =>
                       <strong className="block text-sm capitalize">{ticket.type.replace('_', ' ')}</strong>
                       <span className="text-xs text-gray-600">Priority: {ticket.priorityScore.toFixed(2)}</span>
                       <br />
-                      <span className="text-xs text-gray-600">Status: {ticket.status}</span>
+                      <span className="text-xs text-gray-600">Votes: {ticket.votes}</span>
                       <br/>
                       <img src={ticket.imageUrl.startsWith('http') ? ticket.imageUrl : `http://localhost:4000${ticket.imageUrl}`} alt="issue" className="w-24 h-24 object-cover mt-1 rounded" />
                     </div>
@@ -202,6 +136,35 @@ export default function Dashboard({ onReward }: { onReward?: (points: number) =>
                 </Marker>
               ))}
             </MapContainer>
+          </div>
+
+          {/* Priority List */}
+          <div className="lg:col-span-1 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 h-[600px] overflow-y-auto transition-colors duration-300">
+            <h3 className="text-lg font-bold mb-4 sticky top-0 bg-white dark:bg-gray-800 pb-2 border-b dark:border-gray-700 flex items-center gap-2 text-gray-900 dark:text-white transition-colors duration-300">
+              <List className="w-5 h-5 text-gray-500 dark:text-gray-400"/>
+              Priority Queue
+            </h3>
+            <div className="space-y-3">
+              {tickets.map((ticket) => (
+                <div key={ticket.ticketId} className="p-3 border dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition duration-200">
+                  <div className="flex justify-between items-start mb-1">
+                    <span className="font-semibold capitalize text-gray-800 dark:text-gray-200">{ticket.type.replace('_', ' ')}</span>
+                    <span className={`px-2 py-0.5 rounded text-xs font-bold ${
+                      ticket.priorityScore > 0.7 ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' : 
+                      ticket.priorityScore > 0.4 ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300' : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+                    }`}>
+                      {ticket.priorityScore.toFixed(2)}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Confidence: {(ticket.aiConfidence * 100).toFixed(0)}% • Votes: {ticket.votes}</p>
+                  <div className="flex gap-2 text-xs">
+                    <span className="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300 px-2 py-1 rounded">{ticket.status}</span>
+                  </div>
+                </div>
+              ))}
+              {tickets.length === 0 && <p className="text-gray-400 dark:text-gray-500 text-center py-4">No issues reported yet.</p>}
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -9,12 +9,6 @@ export default function MyReports() {
   const [ids, setIds] = useState<string[]>([]);
   const [tickets, setTickets] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const normalizeStatus = (s: string) => {
-    const x = (s || '').toLowerCase();
-    if (x === 'resolved' || x === 'fixed') return 'Fixed';
-    if (x === 'inprogress' || x === 'in progress') return 'In Progress';
-    return 'New';
-  };
 
   const loadIds = () => {
     try {
@@ -34,9 +28,7 @@ export default function MyReports() {
     setLoading(true);
     try {
       const res = await axios.get(`${API_URL}/tickets`);
-      const mine = res.data
-        .filter((t: any) => ids.includes(t.ticketId))
-        .map((t: any) => ({ ...t, status: normalizeStatus(t.status) }));
+      const mine = res.data.filter((t: any) => ids.includes(t.ticketId));
       setTickets(mine);
     } catch {
       setTickets([]);

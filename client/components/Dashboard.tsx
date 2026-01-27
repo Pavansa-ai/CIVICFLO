@@ -3,9 +3,13 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 import dynamic from 'next/dynamic';
+import { Loader2, LayoutGrid, Map as MapIcon, List } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
+import KanbanBoard from './KanbanBoard';
+import { TicketSkeleton } from './Skeleton';
 
-const MapContainer = dynamic(() => import('react-leaflet').then(mod => mod.MapContainer), { ssr: false });
+// Dynamic import for Leaflet (SSR fix)
+const MapContainer = dynamic(() => import('react-leaflet').then(mod => mod.MapContainer), { ssr: false, loading: () => <div className="h-full w-full bg-gray-100 dark:bg-gray-800 animate-pulse rounded-lg" /> });
 const TileLayer = dynamic(() => import('react-leaflet').then(mod => mod.TileLayer), { ssr: false });
 const Marker = dynamic(() => import('react-leaflet').then(mod => mod.Marker), { ssr: false });
 const Popup = dynamic(() => import('react-leaflet').then(mod => mod.Popup), { ssr: false });
@@ -18,6 +22,7 @@ export default function Dashboard() {
   const [mapIcon, setMapIcon] = useState<any>(null);
 
   useEffect(() => {
+    // Client-side only Leaflet setup
     if (typeof window !== 'undefined') {
       import('leaflet').then((L) => {
         const icon = L.default.icon({
@@ -36,7 +41,8 @@ export default function Dashboard() {
     try {
       const res = await axios.get(`${API_URL}/tickets`);
       setTickets(res.data);
-    } catch {
+    } catch (error) {
+      console.error("Failed to fetch tickets", error);
     } finally {
       setLoading(false);
     }
@@ -44,13 +50,13 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchTickets();
-    const interval = setInterval(fetchTickets, 10000);
+    const interval = setInterval(fetchTickets, 10000); // Poll every 10s
     return () => clearInterval(interval);
   }, []);
 
   const center: [number, number] = tickets.length > 0 
     ? [tickets[0].location.coordinates[1], tickets[0].location.coordinates[0]] 
-    : [40.7128, -74.0060];
+    : [40.7128, -74.0060]; // Default NY
 
   return (
     <div className="space-y-4">

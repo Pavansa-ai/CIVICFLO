@@ -5,6 +5,7 @@ interface Props {
 }
 
 export default function KarmaCard({ score }: Props) {
+  // Determine rank based on score
   let rank = "Citizen Observer";
   let color = "text-gray-600 dark:text-gray-300";
   let bg = "bg-gray-100 dark:bg-gray-700";
@@ -23,6 +24,7 @@ export default function KarmaCard({ score }: Props) {
     bg = "bg-green-100 dark:bg-green-900/30";
   }
 
+  // Calculate progress to next level (simple logic)
   const nextLevel = score < 5 ? 5 : score < 20 ? 20 : 50;
   const progress = Math.min(100, (score / nextLevel) * 100);
 
