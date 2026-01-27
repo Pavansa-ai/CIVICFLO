@@ -32,6 +32,9 @@ ai_service/temp_upload.jpg
 # TypeScript
 **/*.tsbuildinfo
 
+# Model weights
+*.pt
+
 # OS files
 .DS_Store
 Thumbs.db
