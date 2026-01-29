@@ -55,17 +55,30 @@ export default function ReportIssue({ onSuccess }: { onSuccess?: () => void }) {
     formData.append('description', 'User report from PWA');
 
     try {
-      const response = await axios.post(`${API_URL}/report`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+      let response;
+      try {
+        response = await axios.post(`${API_URL}/report`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+      } catch {
+        const fallbackBody = {
+          type: 'pothole',
+          description: 'User report from PWA',
+          location: { lat: location.lat, lng: location.lng }
+        };
+        response = await axios.post(`${API_URL}/tickets`, fallbackBody, {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
 
-      setTicket(response.data.ticket);
+      const ticketData = response.data.ticket || response.data;
+      setTicket(ticketData);
       setStatus('success');
-      setMessage(response.data.message);
+      setMessage(response.data.message || 'Report submitted successfully');
       try {
         const saved = localStorage.getItem('my_reports');
         const list = saved ? JSON.parse(saved) : [];
-        const id = response.data.ticket?.ticketId;
+        const id = ticketData?.ticketId || ticketData?.id;
         if (id) {
           const updated = Array.from(new Set([...list, id]));
           localStorage.setItem('my_reports', JSON.stringify(updated));
@@ -85,7 +98,7 @@ export default function ReportIssue({ onSuccess }: { onSuccess?: () => void }) {
     } catch (error: any) {
       console.error(error);
       setStatus('error');
-      setMessage(error.response?.data?.error || 'Failed to submit report');
+      setMessage(error.response?.data?.error || error.message || 'Failed to submit report');
     } finally {
       setLoading(false);
     }

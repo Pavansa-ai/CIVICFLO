@@ -43,7 +43,7 @@ export default function MyReports() {
 
   useEffect(() => {
     fetchTickets();
-    const interval = setInterval(fetchTickets, 10000);
+    const interval = setInterval(fetchTickets, 3000);
     return () => clearInterval(interval);
   }, [ids]);
 

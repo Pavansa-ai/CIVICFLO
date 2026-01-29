@@ -23,6 +23,8 @@ pnpm-debug.log*
 
 # Server uploads (runtime-generated)
 server/uploads/
+server/tickets.json
+server/test_server.js
 
 # AI service
 venv/

@@ -13,6 +13,7 @@ const MapContainer = dynamic(() => import('react-leaflet').then(mod => mod.MapCo
 const TileLayer = dynamic(() => import('react-leaflet').then(mod => mod.TileLayer), { ssr: false });
 const Marker = dynamic(() => import('react-leaflet').then(mod => mod.Marker), { ssr: false });
 const Popup = dynamic(() => import('react-leaflet').then(mod => mod.Popup), { ssr: false });
+const MapUpdater = dynamic(() => import('./MapUpdater'), { ssr: false });
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
 
@@ -20,6 +21,7 @@ export default function Dashboard() {
   const [tickets, setTickets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [mapIcon, setMapIcon] = useState<any>(null);
+  const [userCenter, setUserCenter] = useState<[number, number] | null>(null);
 
   useEffect(() => {
     // Client-side only Leaflet setup
@@ -34,6 +36,15 @@ export default function Dashboard() {
         });
         setMapIcon(icon);
       });
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            setUserCenter([pos.coords.latitude, pos.coords.longitude]);
+          },
+          () => {},
+          { enableHighAccuracy: true, timeout: 5000 }
+        );
+      }
     }
   }, []);
 
@@ -50,13 +61,15 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchTickets();
-    const interval = setInterval(fetchTickets, 10000); // Poll every 10s
+    const interval = setInterval(fetchTickets, 3000);
     return () => clearInterval(interval);
   }, []);
 
-  const center: [number, number] = tickets.length > 0 
-    ? [tickets[0].location.coordinates[1], tickets[0].location.coordinates[0]] 
-    : [40.7128, -74.0060]; // Default NY
+  const center: [number, number] = userCenter
+    ? userCenter
+    : tickets.length > 0
+      ? [tickets[0].location.coordinates[1], tickets[0].location.coordinates[0]]
+      : [40.7128, -74.0060];
 
   return (
     <div className="space-y-4">
@@ -65,6 +78,7 @@ export default function Dashboard() {
       ) : (
         <div className="h-[400px] lg:h-[600px] bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 shadow-sm z-0">
             <MapContainer center={center} zoom={13} style={{ height: '100%', width: '100%' }}>
+              <MapUpdater center={center} />
               <TileLayer
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'

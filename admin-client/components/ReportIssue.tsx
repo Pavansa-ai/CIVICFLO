@@ -55,13 +55,26 @@ export default function ReportIssue({ onSuccess }: { onSuccess?: () => void }) {
     formData.append('description', 'User report from PWA');
 
     try {
-      const response = await axios.post(`${API_URL}/report`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+      let response;
+      try {
+        response = await axios.post(`${API_URL}/report`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+      } catch {
+        const fallbackBody = {
+          type: 'pothole',
+          description: 'User report from Admin PWA',
+          location: { lat: location.lat, lng: location.lng }
+        };
+        response = await axios.post(`${API_URL}/tickets`, fallbackBody, {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
 
-      setTicket(response.data.ticket);
+      const ticketData = response.data.ticket || response.data;
+      setTicket(ticketData);
       setStatus('success');
-      setMessage(response.data.message);
+      setMessage(response.data.message || 'Report submitted successfully');
       
       if (onSuccess) onSuccess();
 
